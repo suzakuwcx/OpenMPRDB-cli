@@ -1,5 +1,5 @@
 # openmprdb-cli
-Minecraft Player Reputation Database cli
+Minecraft Player Reputation Database command-line tool
 
 ## Introduce
   this is a command-line client base on https://github.com/NyaaCat/OpenMPRDB , without third party libraries
