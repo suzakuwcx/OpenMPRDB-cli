@@ -1,8 +1,8 @@
 #include "value.h"
-#include "shell.h"
 #include <string>
 #include <sstream>
 #include <stack>
+#include "shell.hpp"
 
 #include <utility>
 
@@ -265,7 +265,7 @@ Value &Value::setNull()
     type_ = kNull;
     return *this;
 }
-//transform
+
 std::string Value::transform() const
 {
     std::ostringstream ostringstream;
@@ -277,11 +277,228 @@ std::string Value::transform() const
     return reply_json;
 }
 
-Value Value::CreateValueByJson(std::string json)
+Value Value::CreateValueByJson(std::string raw)
 {
-    return CreateValue(json,kMap);
-}
+    std::stack<std::string> key_stack;
 
-Value Value::CreateValue(std::string &raw, UnionType type)
-{
+    std::stack<Value> array_stack;
+    int array_i = 0;
+
+    std::stack<Value> map_stack;
+    //to regonize array or map when prasing ',',true is map,false is array
+    std::stack<bool> bool_stack;
+
+    std::string string_temp;
+    Value value_temp;
+
+    for (int i = 0; i < raw.size(); ++i)
+    {
+        char s = raw[i];
+        switch (s)
+        {
+            case ' ':
+            case '\n':
+                break;
+            case 't':
+                //true
+                if (raw.size() - i < 4)
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'r')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'u')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'e')
+                    throw std::runtime_error("invalid json");
+                value_temp = Value(true);
+                break;
+            case 'f':
+                //false
+                if (raw.size() - i < 5)
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'a')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'l')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 's')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'e')
+                    throw std::runtime_error("invalid json");
+                value_temp = Value(false);
+                break;
+            case 'n':
+                //null
+                if (raw.size() - i < 4)
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'u')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'l')
+                    throw std::runtime_error("invalid json");
+                ++i;
+                if (raw[i] != 'l')
+                    throw std::runtime_error("invalid json");
+                value_temp = Value();
+                break;
+            case '\"':
+                //string
+                ++i;
+                if (i >= raw.size())
+                    throw std::runtime_error("invalid json");
+                for (; i < raw.size(); ++i)
+                {
+                    s = raw[i];
+                    if (s == '\"')
+                        break;
+                    if (s == '\\')
+                    {
+                        ++i;
+                        if (i >= raw.size())
+                            throw std::runtime_error("invalid json");
+                        //escape: " \"message\" : ... "
+                        if (raw[i] == '\"')
+                            string_temp.push_back(raw[i]);
+                        else
+                        {
+                            --i;
+                            string_temp.push_back(raw[i]);
+                        }
+                    }
+                    else
+                        string_temp.push_back(s);
+                }
+                value_temp = string_temp;
+                string_temp.clear();
+                break;
+            case '{':
+                //json
+                map_stack.push(Value());
+                bool_stack.push(true);
+                break;
+            case '[':
+                //array
+                array_stack.push(Value());
+                bool_stack.push(false);
+                break;
+            case ':':
+            {
+                std::string val_string= value_temp.transform();
+                //remove ""
+                key_stack.push(val_string.substr(1,val_string.size()-2));
+                string_temp.clear();
+                break;
+            }
+            case ',':
+                if (bool_stack.empty())
+                    throw std::runtime_error("invalid json");
+                if (bool_stack.top())
+                {
+                    Value val = map_stack.top();
+                    map_stack.pop();
+                    val[key_stack.top()] = value_temp;
+                    key_stack.pop();
+                    map_stack.push(val);
+                }
+                else
+                {
+                    Value val = array_stack.top();
+                    array_stack.pop();
+                    val[array_i] = value_temp;
+                    ++array_i;
+                    array_stack.push(val);
+                }
+                break;
+            case '}':
+            {
+                Value val = map_stack.top();
+                map_stack.pop();
+                val[key_stack.top()] = value_temp;
+                key_stack.pop();
+
+                value_temp = val;
+                bool_stack.pop();
+                break;
+            }
+            case ']':
+            {
+                Value val = array_stack.top();
+                array_stack.pop();
+                val[array_i] = value_temp;
+
+                value_temp = val;
+                array_i = 0;
+                bool_stack.pop();
+                break;
+            }
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+            {
+                bool isDouble = false;
+                for (; i < raw.size(); ++i)
+                {
+                    s = raw[i];
+                    switch (s)
+                    {
+                        case '0':
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5':
+                        case '6':
+                        case '7':
+                        case '8':
+                        case '9':
+                            string_temp.push_back(s);
+                            break;
+                        case '.':
+                            string_temp.push_back(s);
+                            if (isDouble)
+                                throw std::runtime_error("invalid json");
+                            else
+                                isDouble = true;
+                            break;
+                        case ',':
+                        case ' ':
+                        case '}':
+                        case ']':
+                            break;
+                        default:
+                            throw std::runtime_error("invalid json");
+                    }
+                    if (s == ',' || s == ' ' || s == '}' || s == ']')
+                    {
+                        if (isDouble)
+                            value_temp = std::stod(string_temp);
+                        else
+                            value_temp = std::stoi(string_temp);
+                        string_temp.clear();
+                        --i;
+                        break;
+                    }
+                }
+                break;
+            }
+            default:
+                throw std::runtime_error("invalid json");
+        }
+    }
+    if (!key_stack.empty() || !array_stack.empty() || !map_stack.empty() || !bool_stack.empty())
+        throw std::runtime_error("invalid json");
+    return value_temp;
 }

@@ -70,7 +70,6 @@ public:
 private:
     //destructor the class when changing union type
     void CheckDestructor();
-    static Value CreateValue(std::string& raw, UnionType type);
 };
 
 #endif //OPENMPRDB_CLI_VALUE_H

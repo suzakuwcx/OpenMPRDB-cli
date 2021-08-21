@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "shell.h"
+#include "shell.hpp"
 
 TEST(ShellTest,TestEscapeCharacter)
 {

@@ -1,5 +1,5 @@
 #include "HttpConnection.h"
-#include "shell.h"
+#include "shell.hpp"
 
 HttpConnection::HttpConnection() : method_(kGet)
 {

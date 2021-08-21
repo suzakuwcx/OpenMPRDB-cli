@@ -1,9 +1,10 @@
-#ifndef OPENMPRDB_CLI_SHELL_H
-#define OPENMPRDB_CLI_SHELL_H
+#ifndef OPENMPRDB_CLI_SHELL_HPP
+#define OPENMPRDB_CLI_SHELL_HPP
 
 #include <memory>
 #include <cstdio>
 #include <exception>
+#include <cstring>
 
 //replace old_str to new_str in command
 static void replace_all(std::string &command, std::string old_str, std::string new_str)
@@ -22,6 +23,8 @@ static void replace_all(std::string &command, std::string old_str, std::string n
 //execute a command in shell
 static std::string execute(const char* command)
 {
+    if (strchr(command,'\n') != nullptr)
+        throw std::exception();
     std::unique_ptr<FILE, decltype(&pclose)> process(popen(command,"r"),pclose);
     std::string output;
     char buffer[256];
@@ -34,4 +37,4 @@ static std::string execute(const char* command)
     return output;
 }
 
-#endif //OPENMPRDB_CLI_SHELL_H
+#endif //OPENMPRDB_CLI_SHELL_HPP
