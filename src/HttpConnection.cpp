@@ -41,35 +41,39 @@ void HttpConnection::setUrl(const char *url)
 
 std::string HttpConnection::connect()
 {
-    std::string command = "curl";
+    std::vector<std::string> params;
+    params.emplace_back("--silent");
     if (send_msg_.second == kJson)
-        command += " -H 'Content-Type: application/json'";
+    {
+        params.emplace_back("-H");
+        params.emplace_back("Content-Type: application/json");
+    }
+
     switch (method_)
     {
         case kGet:
-            command += " -X GET";
+            params.emplace_back("-X");
+            params.emplace_back("GET");
             break;
         case kPost:
-            command += " -X POST";
-            command += " -d \'";
-            command += send_msg_.first;
-            command.append("\'");
+            params.emplace_back("-X");
+            params.emplace_back("POST");
+            params.emplace_back("-d");
+            params.emplace_back(send_msg_.first);
             break;
         case kPut:
-            command += " -X PUT";
-            command += " -d \'";
-            command += send_msg_.first;
-            command.append("\'");
+            params.emplace_back("-X");
+            params.emplace_back("PUT");
+            params.emplace_back("-d");
+            params.emplace_back(send_msg_.first);
             break;
         case kDelete:
-            command += " -X DELETE";
-            command += " -d \'";
-            command += send_msg_.first;
-            command.append("\'");
+            params.emplace_back("-X");
+            params.emplace_back("DELETE");
+            params.emplace_back("-d");
+            params.emplace_back(send_msg_.first);
             break;
     }
-
-    command += " ";
-    command += url_;
-    return execute(command.c_str());
+    params.emplace_back(url_);
+    return execute("curl",params);
 }

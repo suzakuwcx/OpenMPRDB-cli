@@ -1,0 +1,6 @@
+# type "sudo mprdbc config > /etc/mprdbc.conf" in shell to deploy configuration
+# program will load configuration file in the following order
+# mprdbc.conf
+# ${home}/.config/mprdbc/mprdbc.conf
+# /etc/mprdbc.conf
+
