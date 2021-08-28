@@ -4,3 +4,7 @@
 # ${home}/.config/mprdbc/mprdbc.conf
 # /etc/mprdbc.conf
 
+[submit]
+# Default point when submitting , -1 means banned
+# DefaultPoint = -1
+# DefaultComment = banned

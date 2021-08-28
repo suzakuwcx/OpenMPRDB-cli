@@ -22,7 +22,7 @@ private:
     void analyse();
 
 private:
-    std::string kFilePath;
+    std::string file_path_;
     Conf conf;
     bool isExit;
 

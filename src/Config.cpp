@@ -10,10 +10,10 @@ std::map<std::string, std::string> &Config::operator[](const std::string &key)
 
 void Config::save()
 {
-    std::ofstream ofstream(kFilePath,std::ofstream::out);
+    std::ofstream ofstream(file_path_, std::ofstream::out);
 
     if (!ofstream)
-        throw std::runtime_error("cannot save configuration file at :" + kFilePath);
+        throw std::runtime_error("cannot save configuration file at :" + file_path_);
 
     //save non_section setting
     std::map<std::string, std::string> non_section_setting = conf[""];
@@ -46,8 +46,8 @@ void Config::save()
 
 Config::Config(std::string file_path) : isExit(true)
 {
-    this->kFilePath = std::move(file_path);
-
+    this->file_path_ = std::move(file_path);
+    analyse();
 }
 
 bool Config::isFileExit()
@@ -57,7 +57,7 @@ bool Config::isFileExit()
 
 std::string Config::getFilePath()
 {
-    return kFilePath;
+    return file_path_;
 }
 
 Config::Config() : isExit(false)
@@ -67,13 +67,13 @@ Config::Config() : isExit(false)
 
 void Config::setFilePath(std::string new_path)
 {
-    this->kFilePath = std::move(new_path);
+    this->file_path_ = std::move(new_path);
     analyse();
 }
 
 void Config::analyse()
 {
-    std::ifstream ifstream(kFilePath);
+    std::ifstream ifstream(file_path_);
 
     if (!ifstream)
     {
@@ -98,9 +98,7 @@ void Config::analyse()
             case '\n':
                 if (!key_temp.empty())
                 {
-                    std::map<std::string,std::string> map;
-                    map[key_temp] = string_temp;
-                    conf[section_temp] = map;
+                    conf[section_temp][key_temp] = string_temp;
                     string_temp.clear();
                     key_temp.clear();
                 }
@@ -138,9 +136,7 @@ void Config::analyse()
     }
     if (!key_temp.empty())
     {
-        std::map<std::string,std::string> map;
-        map[key_temp] = string_temp;
-        conf[section_temp] = map;
+        conf[section_temp][key_temp] = string_temp;
         string_temp.clear();
         key_temp.clear();
     }

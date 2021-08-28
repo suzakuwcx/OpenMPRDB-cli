@@ -6,16 +6,22 @@
 class DataBase
 {
 public:
-    static DataBase& getInstance();
+    DataBase() = default;
+    ~DataBase() = default;
+
+    const std::string &getFilePath() const;
+
+    void setFilePath(const std::string &kFilePath);
+
+    std::string getAllRecord();
+    void addRecord(Value value);
+    void deleteRecord(std::string uuid);
+    void save();
 
 private:
-    DataBase();
-    ~DataBase();
+    std::string file_path_;
+    Value::Array data_;
 
-public:
-
-    DataBase(const DataBase&) = delete;
-    DataBase& operator=(const DataBase&) = delete;
 };
 
 

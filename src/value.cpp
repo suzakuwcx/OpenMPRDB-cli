@@ -502,3 +502,11 @@ Value Value::CreateValueByJson(std::string raw)
         throw std::runtime_error("invalid json");
     return value_temp;
 }
+
+Value::Array Value::getArray()
+{
+    if (this->type_ == kArray)
+        return this->array_val_;
+    else
+        throw std::runtime_error("invalid type");
+}

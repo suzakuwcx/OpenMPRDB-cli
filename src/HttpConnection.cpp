@@ -43,11 +43,13 @@ std::string HttpConnection::connect()
 {
     std::vector<std::string> params;
     params.emplace_back("--silent");
+    params.emplace_back("-H");
     if (send_msg_.second == kJson)
-    {
-        params.emplace_back("-H");
         params.emplace_back("Content-Type: application/json");
-    }
+    else if (send_msg_.second == kPlain)
+        params.emplace_back("Content-Type: text/plain");
+    else
+        throw std::runtime_error("illegal message");
 
     switch (method_)
     {

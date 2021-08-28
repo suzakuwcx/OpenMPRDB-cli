@@ -16,6 +16,9 @@ public:
     std::string sign(const std::string& message);
 
 private:
+    void Check();
+
+private:
     std::string key_id_;
 
 };

@@ -45,6 +45,8 @@ public:
     explicit Value(std::string stringVal);
     Value(const Iterator &begin, const Iterator &end);
 //======================================================================
+    Array getArray();
+//======================================================================
     static Value CreateValueByJson(std::string);
 //==============================================================
     UnionType getType() const;

@@ -9,6 +9,7 @@ GPGTool::~GPGTool() = default;
 
 std::string GPGTool::getKey()
 {
+    Check();
     std::vector<std::string> params;
     params.emplace_back("-a");
     params.emplace_back("--export");
@@ -19,6 +20,7 @@ std::string GPGTool::getKey()
 
 std::string GPGTool::sign(const std::string& message)
 {
+    Check();
     std::vector<std::string> params;
     std::string passphrase;
     std::cout << "enter your passphrase:";
@@ -33,4 +35,10 @@ std::string GPGTool::sign(const std::string& message)
     params.emplace_back(passphrase);
     //echo "$message" | gpg --clearsign --local-user ${key_id} --batch --passphrase xx20000726 --pinentry-mode loopback
     return execute("gpg",params,message);
+}
+
+void GPGTool::Check()
+{
+    if (key_id_.empty())
+        throw std::runtime_error("missing gpg key_id");
 }

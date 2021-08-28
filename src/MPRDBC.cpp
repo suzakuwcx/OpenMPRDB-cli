@@ -5,6 +5,8 @@
 #include "GPGTool.h"
 #include "HttpConnection.h"
 #include <sys/stat.h>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 void MPRDBC::printHelp()
 {
@@ -13,8 +15,7 @@ void MPRDBC::printHelp()
     << "  config                  Generate default config\n"
     << "  register \n"
     << "  delete \n"
-    << "  import \n"
-    << "  commit \n"
+    << "  submit \n"
     << "\n"
     << "Option: \n"
     << "  -h, --help              Display this help and exit \n"
@@ -42,9 +43,8 @@ void MPRDBC::init(int argc, char **argv)
     }
     else if (!strcmp(argv[1], "register") ||
                 !strcmp(argv[1], "delete") ||
-                !strcmp(argv[1], "import") ||
                 !strcmp(argv[1], "config") ||
-                !strcmp(argv[1], "commit"))
+                !strcmp(argv[1], "submit"))
     {
         arguments_.opera = std::string(argv[1]);
     }
@@ -115,6 +115,14 @@ void MPRDBC::init(int argc, char **argv)
             arguments_.name.first = true;
             arguments_.name.second = argv[argN];
         }
+        else if (option == "--point")
+        {
+            ++argN;
+            if (argN >= argc || argv[argN][0] == '-')
+                throw std::runtime_error("error: invalid use of option: " + option);
+            arguments_.point.first = true;
+            arguments_.point.second = argv[argN];
+        }
         else
             throw std::runtime_error("error: invalid use of option: " + option);
     }
@@ -140,6 +148,11 @@ void MPRDBC::GenerateDefaultGlobalConfig()
     << "# mprdbc.conf\n"
     << "# ${home}/.config/mprdbc/mprdbc.conf\n"
     << "# /etc/mprdbc.conf\n"
+    << "\n"
+    << "[submit]\n"
+    << "# Default point when submitting , -1 means banned\n"
+    << "# DefaultPoint = -1\n"
+    << "# DefaultComment = banned"
     << std::endl;
 }
 
@@ -148,36 +161,6 @@ void MPRDBC::printMissingConfig()
     std::cout
     << "error: missing config file,type \"mprdbc config\" for help"
     << std::endl;
-}
-
-void MPRDBC::CheckKey()
-{
-    if (!arguments_.key.first)
-    {
-        if (user_config_[""]["key"].empty())
-        {
-            std::string reason;
-            reason += "error: missing key_id \n";
-            reason += "use gpg --gen-key to generate gpg key \n";
-            reason += "use gpg --fingerprint to get key id \n";
-            reason += "key_id is the last 16 characters of fingerprint";
-            throw std::runtime_error(reason);
-        }
-        else
-        {
-            arguments_.key.first = true;
-            arguments_.key.second = user_config_[""]["key"];
-            std::cout << "Load key_id from "
-            << user_config_.getFilePath() << std::endl;
-        }
-    }
-    else
-    {
-        arguments_.key.first = true;
-        user_config_[""]["key"] = arguments_.key.second;
-        user_config_.save();
-        std::cout << "Save key_id to " << user_config_.getFilePath() << std::endl;
-    }
 }
 
 void MPRDBC::launch()
@@ -197,17 +180,40 @@ void MPRDBC::launch()
 
     if (arguments_.opera == "register")
     {
-        CheckKey();
+        //manager key
+        if (!arguments_.key.first)
+        {
+            if (user_config_[""]["key"].empty())
+            {
+                std::string reason;
+                reason += "error: missing key_id \n";
+                reason += "use \"gpg --gen-key\" to generate gpg key \n";
+                reason += "use \"gpg --fingerprint\" to get key id \n";
+                reason += "append \"--key [key_id]\" in \"gpg register\" \n";
+                reason += "(key_id is the last 16 characters of fingerprint)";
+                throw std::runtime_error(reason);
+            }
+            else
+            {
+                arguments_.key.first = true;
+                arguments_.key.second = user_config_[""]["key"];
+                std::cout << "Load key_id from "
+                << user_config_.getFilePath() << std::endl;
+            }
+        }
+        else
+        {
+            arguments_.key.first = true;
+            user_config_[""]["key"] = arguments_.key.second;
+            user_config_.save();
+            std::cout << "Save key_id to " << user_config_.getFilePath() << std::endl;
+        }
 
         if (!arguments_.remote.first)
-        {
             throw std::runtime_error("error: missing argument: --remote");
-        }
 
         if (!arguments_.name.first)
-        {
             throw std::runtime_error("error: missing argument: --name");
-        }
 
         std::string url = arguments_.remote.second;
         url.append("/v1/server/register");
@@ -234,6 +240,7 @@ void MPRDBC::launch()
             std::cout << "register success" << std::endl;
 
             user_config_[""]["remote_server"] = arguments_.remote.second;
+            user_config_[""]["server_id"] = reply["uuid"].transform();
             user_config_.save();
 
             std::cout << "Save remote server to " << user_config_.getFilePath()
@@ -242,9 +249,82 @@ void MPRDBC::launch()
         return;
     }
 
-    if (arguments_.opera == "commit")
+    if (arguments_.opera == "submit")
     {
+        if (!arguments_.point.first)
+        {
+            std::cout << "Load default point from "
+                        << global_config_.getFilePath() << std::endl;
+            arguments_.point.first = true;
+            if (global_config_["submit"]["DefaultPoint"].empty())
+                arguments_.point.second = "-1";
+            else
+                arguments_.point.second = global_config_["submit"]["DefaultPoint"];
+        }
 
+        if (!arguments_.comment.first)
+        {
+            std::cout << "Load default comment from "
+            << global_config_.getFilePath() << std::endl;
+            arguments_.comment.first = true;
+            if (global_config_["submit"]["DefaultComment"].empty())
+                arguments_.comment.second = "banned";
+            else
+                arguments_.comment.second = global_config_["submit"]["DefaultComment"];
+        }
+
+        if (!arguments_.player.first)
+            throw std::runtime_error("error: missing argument: --player");
+
+        std::string message;
+        Value value;
+
+        boost::uuids::uuid uuid{};
+        uuid = rgen_();
+
+        value["uuid"] = to_string(uuid);
+        value["timestamp"] = std::to_string(time(NULL));
+        value["player_uuid"] = arguments_.player.second;
+        value["points"] = arguments_.point.second;
+        value["comment"] = arguments_.comment.second;
+
+        message = message + "uuid: " + to_string(uuid) + '\n';
+        message = message + "timestamp: " + std::to_string(time(NULL)) + '\n';
+        message = message + "player_uuid: " + arguments_.player.second + '\n';
+        message = message + "points: " + arguments_.point.second + '\n';
+        message = message + "comment: " + arguments_.comment.second;
+
+        std::string url = user_config_[""]["remote_server"];
+        if (url.empty())
+            throw std::runtime_error("haven't registered remote server");
+
+        std::string key_id = user_config_[""]["key"];
+        if(key_id.empty())
+            throw std::runtime_error("haven't registered remote server");
+
+        url += "/v1/submit/new";
+
+        GPGTool tool(key_id.c_str());
+        message = tool.sign(message);
+
+        connection.setUrl(url.c_str());
+        connection.setMethod(kPut);
+        connection.setMessage(message.c_str(),kPlain);
+
+        Value reply = Value::CreateValueByJson(connection.connect());
+        if (reply["status"].transform() == R"("NG")")
+        {
+            std::string reason;
+            reason += "submit fail : ";
+            reason += reply["reason"].transform();
+            throw std::runtime_error(reason);
+        }
+        else
+        {
+            dataBase_.addRecord(value);
+            std::cout << "submit success" << std::endl;
+        }
+        return;
     }
 }
 
@@ -264,4 +344,6 @@ MPRDBC::MPRDBC()
     }
 
     user_config_.setFilePath(home_dir_ + "/.config/mprdbc/config");
+
+    dataBase_.setFilePath(home_dir_ + "/.config/mprdbc/submit");
 }

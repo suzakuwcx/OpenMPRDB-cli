@@ -3,8 +3,11 @@
 
 #include <string>
 #include <utility>
+#include <boost/uuid/random_generator.hpp>
 #include "Config.h"
 #include "HttpConnection.h"
+#include "value.h"
+#include "DataBase.h"
 
 struct Arguments
 {
@@ -17,6 +20,7 @@ struct Arguments
     std::pair<bool,std::string> comment = {false,""};
     std::pair<bool,std::string> banList = {false,""};
     std::pair<bool,std::string> submit = {false,""};
+    std::pair<bool,std::string> point = {false,""};
 };
 
 class MPRDBC
@@ -33,11 +37,13 @@ public:
     void launch();
 private:
     const char * kVersion = "1.0.0";
+    boost::uuids::random_generator rgen_;
     HttpConnection connection;
     Arguments arguments_;
     std::string home_dir_;
     Config global_config_;
     Config user_config_;
+    DataBase dataBase_;
 };
 
 
